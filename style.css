@@ -1,1 +1,81 @@
+body { 
+    font-family: Arial, sans-serif; 
+    max-width: 800px; 
+    margin: 0 auto; 
+    padding: 20px;
+    line-height: 1.6;
+}
 
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #2196F3;
+    padding-bottom: 15px;
+}
+
+.project { 
+    border: 1px solid #ddd; 
+    padding: 20px; 
+    margin: 15px 0; 
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.progress { 
+    background: #f0f0f0; 
+    height: 20px; 
+    border-radius: 10px; 
+    margin: 15px 0; 
+}
+
+.progress-bar { 
+    background: #4CAF50; 
+    height: 100%; 
+    border-radius: 10px; 
+    transition: width 0.3s ease;
+}
+
+.btn { 
+    background: #2196F3; 
+    color: white; 
+    padding: 10px 20px; 
+    text-decoration: none; 
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn:hover {
+    background: #1976D2;
+}
+
+.btn-cancel {
+    background: #f44336;
+    margin-left: 10px;
+}
+
+.form-container {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+.stats {
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+    font-size: 14px;
+}

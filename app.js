@@ -6,6 +6,20 @@ class CrowdfundingApp {
         this.currentRoute = 'home';
         this.currentProjectId = null;
         this.deferredPrompt = null;
+        
+        // Привязываем методы к контексту
+        this.applyFilters = this.applyFilters.bind(this);
+        this.handleProjectSubmit = this.handleProjectSubmit.bind(this);
+        this.supportProject = this.supportProject.bind(this);
+        this.toggleFavorite = this.toggleFavorite.bind(this);
+        this.rateProject = this.rateProject.bind(this);
+        this.showProjectDetail = this.showProjectDetail.bind(this);
+        this.toggleTheme = this.toggleTheme.bind(this);
+        this.showAuthModal = this.showAuthModal.bind(this);
+        this.handleAuth = this.handleAuth.bind(this);
+        this.logout = this.logout.bind(this);
+        this.hideModal = this.hideModal.bind(this);
+        
         this.init();
     }
 
@@ -67,55 +81,30 @@ class CrowdfundingApp {
         const content = document.getElementById('app-content');
         if (!content) return;
 
-        // Показываем скелетон загрузки
-        content.innerHTML = this.renderSkeleton();
-        
-        setTimeout(() => {
-            switch(this.currentRoute) {
-                case 'home':
-                    content.innerHTML = this.renderHome();
-                    break;
-                case 'projects':
-                    content.innerHTML = this.renderProjects();
-                    break;
-                case 'create':
-                    content.innerHTML = this.renderCreateForm();
-                    break;
-                case 'stats':
-                    content.innerHTML = this.renderStats();
-                    break;
-                case 'project-detail':
-                    content.innerHTML = this.renderProjectDetail();
-                    break;
-                default:
-                    content.innerHTML = this.renderHome();
-            }
+        let html = '';
+        switch(this.currentRoute) {
+            case 'home':
+                html = this.renderHome();
+                break;
+            case 'projects':
+                html = this.renderProjects();
+                break;
+            case 'create':
+                html = this.renderCreateForm();
+                break;
+            case 'stats':
+                html = this.renderStats();
+                break;
+            case 'project-detail':
+                html = this.renderProjectDetail();
+                break;
+            default:
+                html = this.renderHome();
+        }
 
-            this.updateNavigation();
-            this.setupDynamicEventListeners();
-        }, 300);
-    }
-
-    renderSkeleton() {
-        return `
-            <div class="projects-grid">
-                ${Array.from({length: 6}, () => `
-                    <div class="project-card">
-                        <div class="project-image skeleton"></div>
-                        <div class="project-content">
-                            <div class="skeleton-text" style="width: 80%"></div>
-                            <div class="skeleton-text short"></div>
-                            <div class="skeleton-text" style="width: 60%"></div>
-                            <div class="progress skeleton" style="height: 8px; margin: 1rem 0"></div>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <div class="skeleton-text" style="flex: 1; height: 2.5rem"></div>
-                                <div class="skeleton-text" style="width: 2.5rem; height: 2.5rem"></div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        content.innerHTML = html;
+        this.updateNavigation();
+        this.setupDynamicEventListeners();
     }
 
     renderHome() {
@@ -274,12 +263,12 @@ class CrowdfundingApp {
                     ` : ''}
 
                     <div class="project-actions">
-                        <button onclick="event.stopPropagation(); app.supportProject('${project.id}')" 
+                        <button onclick="app.supportProject('${project.id}')" 
                                 class="btn btn-donate hover-lift">💝 Поддержать</button>
-                        <button onclick="event.stopPropagation(); app.toggleFavorite('${project.id}')" 
+                        <button onclick="app.toggleFavorite('${project.id}')" 
                                 class="btn-icon ${project.isFavorite ? 'favorite' : ''} hover-lift">⭐</button>
                         ${!project.averageRating ? `
-                            <button onclick="event.stopPropagation(); app.showRatingModal('${project.id}')" 
+                            <button onclick="app.showRatingModal('${project.id}')" 
                                     class="btn-icon hover-lift">👍</button>
                         ` : ''}
                     </div>
@@ -529,15 +518,12 @@ class CrowdfundingApp {
         const searchInput = document.getElementById('searchInput');
         
         if (!categoryFilter || !sortSelect || !searchInput) {
-            console.log('Фильтры не найдены');
             return;
         }
         
         const category = categoryFilter.value;
         const sortBy = sortSelect.value;
         const searchQuery = searchInput.value.toLowerCase().trim();
-        
-        console.log('Применяем фильтры:', { category, sortBy, searchQuery });
         
         let filteredProjects = [...this.projects];
         
@@ -566,7 +552,6 @@ class CrowdfundingApp {
     }
 
     applyFiltersOnRender() {
-        // При первоначальном рендере показываем все проекты, отсортированные по новизне
         return this.sortProjects([...this.projects], 'newest');
     }
 
@@ -593,10 +578,7 @@ class CrowdfundingApp {
 
     renderFilteredProjects(projects) {
         const container = document.getElementById('projectsGrid');
-        if (!container) {
-            console.log('Контейнер projectsGrid не найден');
-            return;
-        }
+        if (!container) return;
         
         container.innerHTML = projects.length > 0 ? 
             projects.map(project => this.renderProjectCard(project)).join('') :
@@ -605,28 +587,20 @@ class CrowdfundingApp {
 
     // 🔧 ОСНОВНОЙ ФУНКЦИОНАЛ
     setupEventListeners() {
-        document.getElementById('authBtn').addEventListener('click', () => {
-            this.showAuthModal();
-        });
-
-        // PWA установка
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            this.deferredPrompt = e;
-            setTimeout(() => {
-                this.showInstallPrompt();
-            }, 5000);
-        });
+        const authBtn = document.getElementById('authBtn');
+        if (authBtn) {
+            authBtn.addEventListener('click', this.showAuthModal);
+        }
     }
 
     setupDynamicEventListeners() {
         // Форма создания проекта
         const projectForm = document.getElementById('projectForm');
         if (projectForm) {
-            projectForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleProjectSubmit(e);
-            });
+            // Удаляем старые обработчики
+            projectForm.removeEventListener('submit', this.handleProjectSubmit);
+            // Добавляем новые
+            projectForm.addEventListener('submit', this.handleProjectSubmit);
 
             // Счетчик символов
             const descTextarea = document.getElementById('projectDescription');
@@ -635,7 +609,6 @@ class CrowdfundingApp {
                 descTextarea.addEventListener('input', () => {
                     descCounter.textContent = descTextarea.value.length;
                 });
-                // Инициализируем счетчик
                 descCounter.textContent = descTextarea.value.length;
             }
         }
@@ -647,15 +620,15 @@ class CrowdfundingApp {
 
         if (categoryFilter) {
             categoryFilter.removeEventListener('change', this.applyFilters);
-            categoryFilter.addEventListener('change', () => this.applyFilters());
+            categoryFilter.addEventListener('change', this.applyFilters);
         }
         if (sortSelect) {
             sortSelect.removeEventListener('change', this.applyFilters);
-            sortSelect.addEventListener('change', () => this.applyFilters());
+            sortSelect.addEventListener('change', this.applyFilters);
         }
         if (searchInput) {
             searchInput.removeEventListener('input', this.applyFilters);
-            searchInput.addEventListener('input', () => this.applyFilters());
+            searchInput.addEventListener('input', this.applyFilters);
         }
     }
 
@@ -694,7 +667,6 @@ class CrowdfundingApp {
         this.saveToStorage();
         
         this.showNotification('🎉 Проект успешно создан!', 'success');
-        this.showSystemNotification('Проект создан', 'Ваш проект теперь виден всем пользователям!');
         this.navigate('projects');
     }
 
@@ -748,7 +720,6 @@ class CrowdfundingApp {
             this.hideModal();
             
             this.showNotification(`🎉 Спасибо! Вы поддержали проект на ${amount}₽`, 'success');
-            this.showSystemNotification('Поддержка проекта', `Вы успешно поддержали проект "${project.title}" на ${amount}₽`);
         }
     }
 
@@ -800,7 +771,9 @@ class CrowdfundingApp {
         localStorage.setItem('darkTheme', isDark);
         
         const themeIcon = document.getElementById('themeIcon');
-        themeIcon.textContent = isDark ? '☀️' : '🌙';
+        if (themeIcon) {
+            themeIcon.textContent = isDark ? '☀️' : '🌙';
+        }
         
         this.showNotification(isDark ? '🌙 Тёмная тема включена' : '☀️ Светлая тема включена', 'info');
     }
@@ -846,33 +819,6 @@ class CrowdfundingApp {
         }
     }
 
-    showInstallPrompt() {
-        if (this.deferredPrompt && !localStorage.getItem('installPromptShown')) {
-            this.showModal(`
-                <h3>📱 Установить приложение</h3>
-                <p>Установите наше приложение для быстрого доступа!</p>
-                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-                    <button onclick="app.installApp()" class="btn btn-gradient hover-lift">Установить</button>
-                    <button onclick="app.hideModal(); localStorage.setItem('installPromptShown', 'true');" 
-                            class="btn btn-outline hover-lift">Позже</button>
-                </div>
-            `);
-        }
-    }
-
-    async installApp() {
-        if (this.deferredPrompt) {
-            this.deferredPrompt.prompt();
-            const { outcome } = await this.deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                this.showNotification('📱 Приложение успешно установлено!', 'success');
-            }
-            this.deferredPrompt = null;
-            this.hideModal();
-            localStorage.setItem('installPromptShown', 'true');
-        }
-    }
-
     // 🔔 УВЕДОМЛЕНИЯ
     requestNotificationPermission() {
         if ('Notification' in window && Notification.permission === 'default') {
@@ -880,16 +826,6 @@ class CrowdfundingApp {
                 if (permission === 'granted') {
                     this.showNotification('🔔 Уведомления включены!', 'success');
                 }
-            });
-        }
-    }
-
-    showSystemNotification(title, message) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(title, { 
-                body: message, 
-                icon: '/icon.png',
-                badge: '/icon.png'
             });
         }
     }
@@ -919,7 +855,7 @@ class CrowdfundingApp {
             {
                 id: '1',
                 title: "Школьный сад мечты",
-                description: "Создание современной зоны отдыха с растениями и местом для учебы на открытом воздухе. Мы планируем посадить фруктовые деревья, разбить цветники и установить удобные скамейки для занятий. Это будет прекрасное место для отдыха и учебы всех учеников нашей школы.",
+                description: "Создание современной зоны отдыха с растениями и местом для учебы на открытом воздухе.",
                 goal: 50000,
                 collected: 32500,
                 category: "экология",
@@ -935,7 +871,7 @@ class CrowdfundingApp {
             {
                 id: '2', 
                 title: "Робототехника для всех",
-                description: "Закупка оборудования для кружка робототехники и проведение мастер-классов для всех желающих. Arduino, 3D-принтер, компоненты для сборки роботов. Мы хотим сделать технологии доступными для каждого ребенка в нашем городе.",
+                description: "Закупка оборудования для кружка робототехники и проведение мастер-классов.",
                 goal: 75000,
                 collected: 68200,
                 category: "технологии", 
@@ -951,7 +887,7 @@ class CrowdfundingApp {
             {
                 id: '3',
                 title: "Молодежный театр",
-                description: "Создание театральной студии для подростков. Костюмы, декорации, сценическое оборудование для постановки спектаклей. Мы верим, что искусство может изменить жизни молодых людей.",
+                description: "Создание театральной студии для подростков.",
                 goal: 30000,
                 collected: 18500,
                 category: "искусство",
@@ -961,22 +897,6 @@ class CrowdfundingApp {
                 status: "active",
                 deadline: 60,
                 isFavorite: false
-            },
-            {
-                id: '4',
-                title: "Спортивная площадка",
-                description: "Строительство современной спортивной площадки с тренажерами и зоной для воркаута. Открытое пространство для занятий спортом всех желающих.",
-                goal: 120000,
-                collected: 95600,
-                category: "спорт",
-                author: "Спортклуб 'Энергия'",
-                createdAt: new Date('2024-01-05').toISOString(),
-                donors: 156,
-                status: "active",
-                deadline: 30,
-                isFavorite: true,
-                rating: { total: 67, count: 15 },
-                averageRating: 4.8
             }
         ];
     }
@@ -1085,16 +1005,25 @@ class CrowdfundingApp {
 
     // 🎪 UI ФУНКЦИИ
     showModal(content) {
-        document.getElementById('modalBody').innerHTML = content;
-        document.getElementById('modalOverlay').style.display = 'flex';
+        const modalBody = document.getElementById('modalBody');
+        const modalOverlay = document.getElementById('modalOverlay');
+        if (modalBody && modalOverlay) {
+            modalBody.innerHTML = content;
+            modalOverlay.style.display = 'flex';
+        }
     }
 
     hideModal() {
-        document.getElementById('modalOverlay').style.display = 'none';
+        const modalOverlay = document.getElementById('modalOverlay');
+        if (modalOverlay) {
+            modalOverlay.style.display = 'none';
+        }
     }
 
     showNotification(message, type = 'info') {
         const notifications = document.getElementById('notifications');
+        if (!notifications) return;
+        
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.textContent = message;
@@ -1169,16 +1098,16 @@ class CrowdfundingApp {
         const userName = document.getElementById('userName');
         const userAvatar = document.getElementById('userAvatar');
 
-        if (this.currentUser) {
+        if (this.currentUser && userMenu && userName && userAvatar) {
             authBtn.style.display = 'none';
             userMenu.style.display = 'flex';
             userMenu.style.alignItems = 'center';
             userMenu.style.gap = '0.75rem';
             userName.textContent = this.currentUser.name;
             userAvatar.textContent = this.currentUser.avatar;
-        } else {
+        } else if (authBtn) {
             authBtn.style.display = 'block';
-            userMenu.style.display = 'none';
+            if (userMenu) userMenu.style.display = 'none';
         }
     }
 }

@@ -422,4 +422,343 @@ class CrowdfundingApp {
             // Счетчик символов
             const descTextarea = document.getElementById('projectDescription');
             const descCounter = document.getElementById('descCounter');
-            if (desc
+            if (descTextarea && descCounter) {
+                descTextarea.addEventListener('input', () => {
+                    descCounter.textContent = descTextarea.value.length;
+                });
+            }
+        }
+
+        // Фильтры на странице проектов
+        const categoryFilter = document.getElementById('categoryFilter');
+        const sortSelect = document.getElementById('sortSelect');
+        const searchInput = document.getElementById('searchInput');
+
+        if (categoryFilter) {
+            categoryFilter.addEventListener('change', () => this.applyFilters());
+        }
+        if (sortSelect) {
+            sortSelect.addEventListener('change', () => this.applyFilters());
+        }
+        if (searchInput) {
+            searchInput.addEventListener('input', () => this.applyFilters());
+        }
+    }
+
+    handleProjectSubmit(event) {
+        event.preventDefault();
+        
+        const projectData = {
+            title: document.getElementById('projectTitle').value,
+            description: document.getElementById('projectDescription').value,
+            goal: parseInt(document.getElementById('projectGoal').value),
+            category: document.getElementById('projectCategory').value,
+            author: document.getElementById('projectAuthor').value || 'Аноним',
+            deadline: parseInt(document.getElementById('projectDeadline').value) || 30,
+            image: document.getElementById('projectImage').value,
+            createdAt: new Date().toISOString(),
+            collected: 0,
+            donors: 0,
+            status: 'active',
+            id: Date.now().toString()
+        };
+
+        this.projects.unshift(projectData);
+        this.saveToStorage();
+        
+        this.showNotification('Проект успешно создан!', 'success');
+        this.navigate('projects');
+    }
+
+    supportProject(projectId) {
+        if (!this.currentUser) {
+            this.showAuthModal();
+            return;
+        }
+
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+
+        this.showModal(`
+            <h3>Поддержать проект</h3>
+            <p>«${project.title}»</p>
+            
+            <div class="donation-amounts" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin: 1.5rem 0;">
+                <button onclick="app.processDonation('${projectId}', 100)" class="btn btn-outline">100₽</button>
+                <button onclick="app.processDonation('${projectId}', 500)" class="btn btn-outline">500₽</button>
+                <button onclick="app.processDonation('${projectId}', 1000)" class="btn btn-outline">1000₽</button>
+            </div>
+            
+            <div class="custom-amount" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <input type="number" id="customAmount" placeholder="Другая сумма" min="10" style="flex: 1; padding: 0.75rem; border: 2px solid var(--border); border-radius: 0.5rem;">
+                <button onclick="app.processCustomDonation('${projectId}')" class="btn">Поддержать</button>
+            </div>
+        `);
+    }
+
+    processDonation(projectId, amount) {
+        this.processCustomDonation(projectId, amount);
+    }
+
+    processCustomDonation(projectId, customAmount = null) {
+        const amount = customAmount || parseInt(document.getElementById('customAmount')?.value);
+        
+        if (!amount || amount < 10) {
+            this.showNotification('Введите корректную сумму (минимум 10₽)', 'error');
+            return;
+        }
+
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            project.collected += amount;
+            project.donors += 1;
+            
+            this.saveToStorage();
+            this.render();
+            this.hideModal();
+            
+            this.showNotification(`Спасибо! Вы поддержали проект на ${amount}₽`, 'success');
+        }
+    }
+
+    toggleFavorite(projectId) {
+        if (!this.currentUser) {
+            this.showAuthModal();
+            return;
+        }
+
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            project.isFavorite = !project.isFavorite;
+            this.saveToStorage();
+            this.render();
+            
+            this.showNotification(
+                project.isFavorite ? 'Проект добавлен в избранное' : 'Проект удален из избранное',
+                'success'
+            );
+        }
+    }
+
+    showProjectDetail(projectId) {
+        this.navigate(`project/${projectId}`);
+    }
+
+    applyFilters() {
+        // В реальном приложении здесь была бы фильтрация
+        // Сейчас просто перерисовываем
+        if (this.currentRoute === 'projects') {
+            this.render();
+        }
+    }
+
+    // 💾 ХРАНЕНИЕ ДАННЫХ
+    loadInitialData() {
+        const saved = localStorage.getItem('crowdfunding_projects');
+        this.projects = saved ? JSON.parse(saved) : this.getDemoProjects();
+        
+        const savedUsers = localStorage.getItem('crowdfunding_users');
+        this.users = savedUsers ? JSON.parse(savedUsers) : [];
+        
+        const currentUser = localStorage.getItem('current_user');
+        this.currentUser = currentUser ? JSON.parse(currentUser) : null;
+    }
+
+    saveToStorage() {
+        localStorage.setItem('crowdfunding_projects', JSON.stringify(this.projects));
+        localStorage.setItem('crowdfunding_users', JSON.stringify(this.users));
+        if (this.currentUser) {
+            localStorage.setItem('current_user', JSON.stringify(this.currentUser));
+        }
+    }
+
+    getDemoProjects() {
+        return [
+            {
+                id: '1',
+                title: "Школьный сад мечты",
+                description: "Создание современной зоны отдыха с растениями и местом для учебы на открытом воздухе. Мы планируем посадить фруктовые деревья, разбить цветники и установить удобные скамейки для занятий.",
+                goal: 50000,
+                collected: 32500,
+                category: "экология",
+                author: "Эко-клуб школы №15",
+                createdAt: new Date('2024-01-15').toISOString(),
+                donors: 47,
+                status: "active",
+                deadline: 45,
+                isFavorite: false
+            },
+            {
+                id: '2', 
+                title: "Робототехника для всех",
+                description: "Закупка оборудования для кружка робототехники и проведение мастер-классов для всех желающих. Arduino, 3D-принтер, компоненты для сборки роботов.",
+                goal: 75000,
+                collected: 68200,
+                category: "технологии", 
+                author: "IT-лаборатория",
+                createdAt: new Date('2024-01-10').toISOString(),
+                donors: 89,
+                status: "active",
+                deadline: 15,
+                isFavorite: true
+            },
+            {
+                id: '3',
+                title: "Молодежный театр",
+                description: "Создание театральной студии для подростков. Костюмы, декорации, сценическое оборудование для постановки спектаклей.",
+                goal: 30000,
+                collected: 18500,
+                category: "искусство",
+                author: "Творческая мастерская",
+                createdAt: new Date('2024-01-20').toISOString(),
+                donors: 23,
+                status: "active",
+                deadline: 60,
+                isFavorite: false
+            }
+        ];
+    }
+
+    // 📊 ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    getPlatformStats() {
+        const totalProjects = this.projects.length;
+        const totalCollected = this.projects.reduce((sum, p) => sum + p.collected, 0);
+        const totalDonors = this.projects.reduce((sum, p) => sum + p.donors, 0);
+        const successfulProjects = this.projects.filter(p => p.collected >= p.goal).length;
+        const successRate = totalProjects > 0 ? Math.round((successfulProjects / totalProjects) * 100) : 0;
+        const avgDonation = totalDonors > 0 ? Math.round(totalCollected / totalDonors) : 0;
+
+        return {
+            totalProjects,
+            totalCollected,
+            totalDonors,
+            successRate,
+            avgDonation
+        };
+    }
+
+    getCategories() {
+        const categories = [...new Set(this.projects.map(p => p.category))];
+        return categories.filter(Boolean);
+    }
+
+    getCategoryIcon(category) {
+        const icons = {
+            'технологии': '💻',
+            'искусство': '🎨', 
+            'образование': '📚',
+            'экология': '🌱',
+            'спорт': '⚽',
+            'социальный': '🤝'
+        };
+        return icons[category] || '📋';
+    }
+
+    formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString('ru-RU');
+    }
+
+    getDaysLeft(deadline) {
+        if (!deadline) return null;
+        return Math.max(0, deadline);
+    }
+
+    renderCategoryChart() {
+        const categories = {};
+        this.projects.forEach(project => {
+            categories[project.category] = (categories[project.category] || 0) + 1;
+        });
+
+        return Object.entries(categories).map(([category, count]) => `
+            <div class="chart-item">
+                <div class="chart-label">
+                    <span>${this.getCategoryIcon(category)} ${category}</span>
+                    <span>${count}</span>
+                </div>
+                <div class="chart-bar">
+                    <div class="chart-bar-fill" style="width: ${(count / this.projects.length) * 100}%"></div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 🎪 UI ФУНКЦИИ
+    showModal(content) {
+        document.getElementById('modalBody').innerHTML = content;
+        document.getElementById('modalOverlay').style.display = 'flex';
+    }
+
+    hideModal() {
+        document.getElementById('modalOverlay').style.display = 'none';
+    }
+
+    showNotification(message, type = 'info') {
+        const notifications = document.getElementById('notifications');
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        notifications.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+
+    updateNavigation() {
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.toggle('active', link.getAttribute('data-route') === this.currentRoute);
+        });
+
+        // Обновляем панель пользователя
+        const authBtn = document.getElementById('authBtn');
+        const userMenu = document.getElementById('userMenu');
+        const userName = document.getElementById('userName');
+
+        if (this.currentUser) {
+            authBtn.style.display = 'none';
+            userMenu.style.display = 'flex';
+            userName.textContent = this.currentUser.name;
+        } else {
+            authBtn.style.display = 'block';
+            userMenu.style.display = 'none';
+        }
+    }
+
+    showAuthModal() {
+        this.showModal(`
+            <h3>Вход в систему</h3>
+            <div class="auth-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="text" id="authName" placeholder="Ваше имя" value="${this.currentUser?.name || ''}">
+                <input type="email" id="authEmail" placeholder="Email" value="${this.currentUser?.email || ''}">
+                <button onclick="app.handleAuth()" class="btn btn-primary">Войти / Зарегистрироваться</button>
+            </div>
+        `);
+    }
+
+    handleAuth() {
+        const name = document.getElementById('authName').value || 'Пользователь';
+        const email = document.getElementById('authEmail').value || 'user@example.com';
+        
+        this.currentUser = { name, email };
+        this.saveToStorage();
+        this.hideModal();
+        this.render();
+        
+        this.showNotification(`Добро пожаловать, ${name}!`, 'success');
+    }
+
+    logout() {
+        this.currentUser = null;
+        localStorage.removeItem('current_user');
+        this.render();
+        this.showNotification('Вы вышли из системы', 'info');
+    }
+}
+
+// Инициализация приложения
+let app;
+
+document.addEventListener('DOMContentLoaded', function() {
+    app = new CrowdfundingApp();
+});

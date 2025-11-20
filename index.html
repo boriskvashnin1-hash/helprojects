@@ -112,5 +112,64 @@
         <button onclick="app.hideAchievementModal()" class="btn btn-gradient">Отлично!</button>
     </div>
 </div>
+    <!-- Добавь перед закрывающим тегом body -->
+
+<!-- Lightbox для медиа -->
+<div class="lightbox" id="lightbox">
+    <button class="lightbox-close" onclick="app.closeLightbox()">✕</button>
+    <div class="lightbox-nav">
+        <button onclick="app.prevMedia()">❮</button>
+        <button onclick="app.nextMedia()">❯</button>
+    </div>
+    <div class="lightbox-content" id="lightboxContent"></div>
+</div>
+
+<!-- Модальное окно загрузки медиа -->
+<div id="uploadModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <h3>📁 Загрузка медиа</h3>
+        <div id="uploadProgress" class="upload-progress" style="display: none;">
+            <div>Загрузка...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="uploadProgressBar" style="width: 0%"></div>
+            </div>
+            <div id="uploadStatus"></div>
+        </div>
+        <div class="media-upload" onclick="document.getElementById('mediaFiles').click()">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+            <h4>Перетащите файлы сюда</h4>
+            <p>или нажмите для выбора</p>
+            <input type="file" id="mediaFiles" multiple accept="image/*,video/*,audio/*" 
+                   onchange="app.handleMediaUpload(event)">
+        </div>
+        <div style="margin-top: 1rem;">
+            <small>Поддерживаются: JPEG, PNG, GIF, MP4, MP3</small>
+        </div>
+        <div class="form-actions">
+            <button onclick="app.hideUploadModal()" class="btn btn-cancel">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Аудио плеер -->
+<audio id="audioPlayer" style="display: none;"></audio>
+
+<!-- Виджеты соцсетей -->
+<div class="social-widgets" id="socialWidgets" style="display: none;">
+    <div class="social-widget">
+        <h4>📱 Наше сообщество</h4>
+        <p>Присоединяйтесь к нашему Telegram-каналу</p>
+        <button onclick="app.joinTelegram()" class="btn btn-gradient" style="margin-top: 1rem;">
+            Подписаться
+        </button>
+    </div>
+    <div class="social-widget">
+        <h4>🎥 YouTube</h4>
+        <p>Смотрите видео о проектах</p>
+        <button onclick="app.watchYouTube()" class="btn btn-gradient" style="margin-top: 1rem;">
+            Смотреть
+        </button>
+    </div>
+</div>
 </body>
 </html>

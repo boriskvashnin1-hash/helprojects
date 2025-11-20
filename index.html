@@ -3,180 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Помощь молодым проектам</title>
-    <meta name="description" content="Платформа для поддержки молодых проектов и идей">
+    <title>ПомощьПроектам - Краудфандинг для молодежи</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Навигация -->
-    <nav class="navbar">
-        <div class="nav-brand">
-            <h1>🎯 ПомощьПроектам</h1>
+    <div class="app-container">
+        <!-- Навигация -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1>🤝 ПомощьПроектам</h1>
+            </div>
+            <div class="nav-links">
+                <a href="#/" class="nav-link" data-route="home">Главная</a>
+                <a href="#/projects" class="nav-link" data-route="projects">Проекты</a>
+                <a href="#/create" class="nav-link" data-route="create">Создать</a>
+                <a href="#/stats" class="nav-link" data-route="stats">Статистика</a>
+            </div>
+            <div class="nav-actions">
+                ${this.currentUser ? `
+                    <div class="user-menu">
+                        <span>👤 ${this.currentUser.name}</span>
+                        <button onclick="app.logout()" class="btn btn-outline">Выйти</button>
+                    </div>
+                ` : `
+                    <button onclick="app.showAuthModal()" class="btn btn-gradient">Войти</button>
+                `}
+            </div>
+        </nav>
+
+        <!-- Основной контент -->
+        <main class="main-content">
+            <div id="app-content">
+                <!-- Контент будет рендериться здесь -->
+            </div>
+        </main>
+
+        <!-- Виджеты соцсетей -->
+        <div id="socialWidgets" class="social-widgets-panel">
+            <div class="social-widget">
+                <h4>📱 Наше сообщество</h4>
+                <button onclick="app.joinTelegram()" class="btn btn-small">Telegram</button>
+                <button onclick="app.watchYouTube()" class="btn btn-small">YouTube</button>
+            </div>
         </div>
-        <div class="nav-links">
-            <a href="#/" class="nav-link" data-route="home">Главная</a>
-            <a href="#/projects" class="nav-link" data-route="projects">Все проекты</a>
-            <a href="#/create" class="nav-link" data-route="create">Создать проект</a>
-            <a href="#/stats" class="nav-link" data-route="stats">Статистика</a>
+
+        <!-- Живые уведомления -->
+        <div id="liveNotifications" class="live-notifications"></div>
+
+        <!-- Модальные окна -->
+        <div id="authModal" class="modal">
+            <div class="modal-content">
+                <!-- Контент модалки -->
+            </div>
         </div>
-        <div class="nav-actions">
-            <button class="theme-toggle" onclick="app.toggleTheme()" title="Сменить тему">
-                <span id="themeIcon">🌙</span>
-            </button>
-            <button id="authBtn" class="btn btn-outline">Войти</button>
-            <div id="userMenu" style="display: none;">
-                <div id="userCoinsMenu" class="coins-system">
-                    🪙 <span id="userCoins">100</span>
+
+        <div id="achievementModal" class="modal">
+            <div class="modal-content" id="achievementModalBody">
+                <!-- Контент достижений -->
+            </div>
+        </div>
+
+        <!-- Чат поддержки -->
+        <div class="chat-widget">
+            <button onclick="app.toggleChat()" class="chat-toggle">💬 Поддержка</button>
+            <div id="chatContainer" class="chat-container">
+                <div class="chat-header">
+                    <h4>Чат поддержки</h4>
+                    <button onclick="app.toggleChat()" class="btn-close">×</button>
                 </div>
-                <div class="user-avatar" id="userAvatar">U</div>
-                <span id="userName"></span>
-                <button onclick="app.logout()" class="btn btn-outline">Выйти</button>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Основной контент -->
-    <main id="app-content">
-        <!-- Контент загружается динамически -->
-    </main>
-
-    <!-- Модальные окна -->
-    <div id="modalOverlay" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <div id="modalBody"></div>
-            <button onclick="app.hideModal()" class="btn btn-cancel">Закрыть</button>
-        </div>
-    </div>
-
-    <!-- Lightbox для медиа -->
-    <div class="lightbox" id="lightbox">
-        <button class="lightbox-close" onclick="app.closeLightbox()">✕</button>
-        <div class="lightbox-nav">
-            <button onclick="app.prevMedia()">❮</button>
-            <button onclick="app.nextMedia()">❯</button>
-        </div>
-        <div class="lightbox-content" id="lightboxContent"></div>
-    </div>
-
-    <!-- Модальное окно загрузки медиа -->
-    <div id="uploadModal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <h3>📁 Загрузка медиа</h3>
-            <div id="uploadProgress" class="upload-progress" style="display: none;">
-                <div>Загрузка...</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="uploadProgressBar" style="width: 0%"></div>
-                </div>
-                <div id="uploadStatus"></div>
-            </div>
-            <div class="media-upload" onclick="document.getElementById('mediaFiles').click()">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
-                <h4>Перетащите файлы сюда</h4>
-                <p>или нажмите для выбора</p>
-                <input type="file" id="mediaFiles" multiple accept="image/*,video/*,audio/*" 
-                       onchange="app.handleMediaUpload(event)">
-            </div>
-            <div style="margin-top: 1rem;">
-                <small>Поддерживаются: JPEG, PNG, GIF, MP4, MP3</small>
-            </div>
-            <div class="form-actions">
-                <button onclick="app.hideUploadModal()" class="btn btn-cancel">Отмена</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно достижений -->
-    <div id="achievementModal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <div id="achievementModalBody"></div>
-            <button onclick="app.hideAchievementModal()" class="btn btn-gradient">Отлично!</button>
-        </div>
-    </div>
-
-    <!-- Чат поддержки -->
-    <div class="chat-widget">
-        <div class="chat-container" id="chatContainer">
-            <div class="chat-header">
-                <h4>💬 Поддержка</h4>
-                <button onclick="app.toggleChat()" class="btn-icon">✕</button>
-            </div>
-            <div class="chat-messages" id="chatMessages">
-                <div class="chat-message bot">
-                    Привет! Чем могу помочь? Задайте вопрос о проектах или поддержке.
+                <div id="chatMessages" class="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chatInput" placeholder="Введите сообщение...">
+                    <button onclick="app.sendMessage()">📤</button>
                 </div>
             </div>
-            <div class="chat-input">
-                <input type="text" id="chatInput" placeholder="Введите сообщение...">
-                <button onclick="app.sendMessage()" class="btn">📤</button>
-            </div>
-        </div>
-        <button class="chat-toggle" onclick="app.toggleChat()">💬</button>
-    </div>
-
-    <!-- Уведомления в реальном времени -->
-    <div class="live-notifications" id="liveNotifications"></div>
-
-    <!-- Аудио плеер -->
-    <audio id="audioPlayer" style="display: none;">
-        <source src="" type="audio/mp3">
-    </audio>
-
-    <!-- Виджеты соцсетей -->
-    <div class="social-widgets" id="socialWidgets" style="display: none;">
-        <div class="social-widget">
-            <h4>📱 Наше сообщество</h4>
-            <p>Присоединяйтесь к нашему Telegram-каналу</p>
-            <button onclick="app.joinTelegram()" class="btn btn-gradient" style="margin-top: 1rem;">
-                Подписаться
-            </button>
-        </div>
-        <div class="social-widget">
-            <h4>🎥 YouTube</h4>
-            <p>Смотрите видео о проектах</p>
-            <button onclick="app.watchYouTube()" class="btn btn-gradient" style="margin-top: 1rem;">
-                Смотреть
-            </button>
         </div>
     </div>
-
-    <!-- Футер -->
-    <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-section">
-                <h3>🎯 ПомощьПроектам</h3>
-                <p>Платформа для поддержки молодых идей и начинаний</p>
-                <div class="social-share" style="margin-top: 1rem; justify-content: start;">
-                    <button class="share-btn vk" onclick="app.sharePlatform('vk')">VK</button>
-                    <button class="share-btn telegram" onclick="app.sharePlatform('telegram')">Telegram</button>
-                    <button class="share-btn twitter" onclick="app.sharePlatform('twitter')">Twitter</button>
-                </div>
-            </div>
-            <div class="footer-section">
-                <h4>Навигация</h4>
-                <a href="#/" onclick="app.navigate('home')">Главная</a>
-                <a href="#/projects" onclick="app.navigate('projects')">Проекты</a>
-                <a href="#/create" onclick="app.navigate('create')">Создать проект</a>
-                <a href="#/stats" onclick="app.navigate('stats')">Статистика</a>
-            </div>
-            <div class="footer-section">
-                <h4>Контакты</h4>
-                <p>Email: help@projects.ru</p>
-                <p>Телефон: +7 (999) 123-45-67</p>
-                <p>Telegram: @helpprojects</p>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; 2024 ПомощьПроектам. Все права защищены.</p>
-        </div>
-    </footer>
 
     <script src="app.js"></script>
-    <script>
-        // Предзагрузка темы
-        if (localStorage.getItem('darkTheme') === 'true') {
-            document.body.classList.add('dark-theme');
-            document.getElementById('themeIcon').textContent = '☀️';
-        }
-    </script>
 </body>
 </html>

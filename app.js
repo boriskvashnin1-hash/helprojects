@@ -8,12 +8,15 @@ class CrowdfundingApp {
         this.deferredPrompt = null;
         this.liveUpdatesInterval = null;
         this.chatMessages = [];
+        this.mediaFiles = [];
+        this.currentMediaIndex = 0;
         this.userStats = {
             coins: 100,
             level: 1,
             xp: 0,
             badges: [],
-            notifications: []
+            notifications: [],
+            socialShares: 0
         };
         
         // Привязываем методы
@@ -40,6 +43,7 @@ class CrowdfundingApp {
         this.loadInitialData();
         this.setupPWA();
         this.startLiveUpdates();
+        this.setupMediaHandlers();
         
         setTimeout(() => {
             this.requestNotificationPermission();
@@ -48,726 +52,631 @@ class CrowdfundingApp {
         this.render();
     }
 
-    // 🚀 НОВЫЕ ПРОДВИНУТЫЕ ФУНКЦИИ
+    // 🎬 НОВЫЕ МУЛЬТИМЕДИЙНЫЕ ФУНКЦИИ
 
-    // 💰 СИСТЕМА ВИРТУАЛЬНОЙ ВАЛЮТЫ
-    addCoins(amount, reason = '') {
-        if (!this.currentUser) return;
-        
-        this.userStats.coins += amount;
-        this.saveUserStats();
-        
-        this.showLiveNotification(`🎉 +${amount} коинов! ${reason}`, 'success');
-        this.updateCoinsDisplay();
-        
-        // Анимация коинов
-        const coinsElement = document.querySelector('.coins-system');
-        if (coinsElement) {
-            coinsElement.classList.add('coin-animation');
-            setTimeout(() => coinsElement.classList.remove('coin-animation'), 1000);
-        }
-        
-        // Проверяем достижения
-        this.checkCoinAchievements();
-    }
+    // 📁 ЗАГРУЗКА И УПРАВЛЕНИЕ МЕДИА
+    setupMediaHandlers() {
+        // Drag and drop для медиа
+        const uploadArea = document.querySelector('.media-upload');
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--primary)';
+                uploadArea.style.background = 'var(--background)';
+            });
 
-    spendCoins(amount, reason = '') {
-        if (!this.currentUser || this.userStats.coins < amount) {
-            this.showNotification('❌ Недостаточно коинов', 'error');
-            return false;
-        }
-        
-        this.userStats.coins -= amount;
-        this.saveUserStats();
-        this.updateCoinsDisplay();
-        this.showNotification(`💸 Потрачено ${amount} коинов: ${reason}`, 'info');
-        return true;
-    }
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.background = 'transparent';
+            });
 
-    updateCoinsDisplay() {
-        const coinsElement = document.getElementById('userCoins');
-        if (coinsElement) {
-            coinsElement.textContent = this.userStats.coins;
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.background = 'transparent';
+                this.handleMediaUpload({ target: { files: e.dataTransfer.files } });
+            });
         }
     }
 
-    // 🏆 СИСТЕМА УРОВНЕЙ И ДОСТИЖЕНИЙ
-    addXP(amount, source = '') {
-        if (!this.currentUser) return;
-        
-        this.userStats.xp += amount;
-        const oldLevel = this.userStats.level;
-        const newLevel = Math.floor(this.userStats.xp / 100) + 1;
-        
-        if (newLevel > oldLevel) {
-            this.userStats.level = newLevel;
-            this.showLevelUpModal(newLevel);
-            this.addCoins(50, 'За новый уровень!');
-        }
-        
-        this.saveUserStats();
-        this.updateLevelDisplay();
+    showUploadModal() {
+        document.getElementById('uploadModal').style.display = 'flex';
     }
 
-    showLevelUpModal(level) {
-        this.showAchievementModal(
-            '🎊 Новый уровень!',
-            `Поздравляем! Вы достигли ${level} уровня!`,
-            '🚀'
-        );
+    hideUploadModal() {
+        document.getElementById('uploadModal').style.display = 'none';
     }
 
-    updateLevelDisplay() {
-        const levelElement = document.getElementById('userLevel');
-        const xpElement = document.getElementById('userXP');
-        
-        if (levelElement) levelElement.textContent = this.userStats.level;
-        if (xpElement) {
-            const currentLevelXP = this.userStats.xp % 100;
-            xpElement.style.width = `${currentLevelXP}%`;
-        }
-    }
+    handleMediaUpload(event) {
+        const files = event.target.files;
+        if (!files.length) return;
 
-    // 🎯 СИСТЕМА ДОСТИЖЕНИЙ
-    checkCoinAchievements() {
-        const achievements = [
-            { threshold: 100, badge: '💰 Начинающий инвестор', id: 'coin_collector_1' },
-            { threshold: 500, badge: '💰 Опытный инвестор', id: 'coin_collector_2' },
-            { threshold: 1000, badge: '💰 Крипто-кит', id: 'coin_collector_3' }
-        ];
+        const progressBar = document.getElementById('uploadProgressBar');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const uploadProgress = document.getElementById('uploadProgress');
 
-        achievements.forEach(achievement => {
-            if (this.userStats.coins >= achievement.threshold && 
-                !this.userStats.badges.includes(achievement.id)) {
-                this.unlockBadge(achievement.badge, achievement.id);
-            }
+        uploadProgress.style.display = 'block';
+
+        Array.from(files).forEach((file, index) => {
+            this.simulateUpload(file, progressBar, uploadStatus, files.length, index);
         });
     }
 
-    checkProjectAchievements() {
-        const createdProjects = this.projects.filter(p => p.author === this.currentUser?.name).length;
-        const supportedProjects = this.projects.filter(p => p.donors > 0 && this.currentUser).length;
-        
-        if (createdProjects >= 1 && !this.userStats.badges.includes('first_project')) {
-            this.unlockBadge('🚀 Первый проект', 'first_project');
-        }
-        
-        if (createdProjects >= 5 && !this.userStats.badges.includes('pro_creator')) {
-            this.unlockBadge('🎯 Про-создатель', 'pro_creator');
-        }
-        
-        if (supportedProjects >= 3 && !this.userStats.badges.includes('supporter')) {
-            this.unlockBadge('❤️ Активный сторонник', 'supporter');
-        }
+    simulateUpload(file, progressBar, uploadStatus, totalFiles, currentIndex) {
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 20;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(interval);
+                
+                // Добавляем файл в медиа-галерею
+                this.addMediaFile(file);
+                uploadStatus.textContent = `Загружено: ${file.name}`;
+                
+                if (currentIndex === totalFiles - 1) {
+                    setTimeout(() => {
+                        this.hideUploadModal();
+                        this.showNotification('🎉 Медиафайлы загружены!', 'success');
+                    }, 1000);
+                }
+            }
+            progressBar.style.width = `${progress}%`;
+        }, 200);
     }
 
-    unlockBadge(badgeName, badgeId) {
-        this.userStats.badges.push(badgeId);
-        this.saveUserStats();
-        
-        this.showAchievementModal(
-            '🏆 Новое достижение!',
-            badgeName,
-            '🎊'
-        );
-        
-        this.addCoins(25, `За достижение: ${badgeName}`);
-        this.addXP(25);
+    addMediaFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const mediaItem = {
+                id: Date.now() + Math.random(),
+                type: file.type.startsWith('image/') ? 'image' : 
+                      file.type.startsWith('video/') ? 'video' : 'audio',
+                url: e.target.result,
+                name: file.name,
+                size: file.size
+            };
+            
+            this.mediaFiles.push(mediaItem);
+            this.renderMediaGallery();
+        };
+        reader.readAsDataURL(file);
     }
 
-    showAchievementModal(title, message, emoji) {
-        const modal = document.getElementById('achievementModal');
-        const body = document.getElementById('achievementModalBody');
-        
-        if (modal && body) {
-            body.innerHTML = `
-                <div style="text-align: center; padding: 2rem;">
-                    <div style="font-size: 4rem; margin-bottom: 1rem;">${emoji}</div>
-                    <h3>${title}</h3>
-                    <p style="color: var(--text-light); margin: 1rem 0;">${message}</p>
+    renderMediaGallery() {
+        const gallery = document.getElementById('mediaGallery');
+        if (!gallery) return;
+
+        gallery.innerHTML = this.mediaFiles.map((media, index) => `
+            <div class="media-item media-enter" onclick="app.openLightbox(${index})">
+                ${media.type === 'image' ? `
+                    <img src="${media.url}" alt="${media.name}" loading="lazy">
+                ` : media.type === 'video' ? `
+                    <video>
+                        <source src="${media.url}" type="video/mp4">
+                    </video>
+                    <div class="play-button">▶</div>
+                ` : `
+                    <div style="background: linear-gradient(135deg, #667eea, #764ba2); height: 100%; display: flex; align-items: center; justify-content: center; color: white;">
+                        🎵 Аудио
+                    </div>
+                `}
+            </div>
+        `).join('') + `
+            <div class="media-upload" onclick="app.showUploadModal()">
+                <div style="font-size: 2rem;">+</div>
+                <div>Добавить медиа</div>
+            </div>
+        `;
+    }
+
+    // 🖼️ LIGHTBOX ДЛЯ МЕДИА
+    openLightbox(index) {
+        this.currentMediaIndex = index;
+        const media = this.mediaFiles[index];
+        const lightbox = document.getElementById('lightbox');
+        const content = document.getElementById('lightboxContent');
+
+        if (media.type === 'image') {
+            content.innerHTML = `<img src="${media.url}" alt="${media.name}">`;
+        } else if (media.type === 'video') {
+            content.innerHTML = `
+                <video controls autoplay>
+                    <source src="${media.url}" type="video/mp4">
+                    Ваш браузер не поддерживает видео.
+                </video>
+            `;
+        } else {
+            content.innerHTML = `
+                <div style="text-align: center; color: white; padding: 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">🎵</div>
+                    <h3>${media.name}</h3>
+                    <audio controls autoplay style="margin-top: 1rem; width: 100%;">
+                        <source src="${media.url}" type="audio/mp3">
+                    </audio>
                 </div>
             `;
-            modal.style.display = 'flex';
+        }
+
+        lightbox.classList.add('active');
+    }
+
+    closeLightbox() {
+        document.getElementById('lightbox').classList.remove('active');
+        // Останавливаем все медиа
+        const video = document.querySelector('#lightboxContent video');
+        const audio = document.querySelector('#lightboxContent audio');
+        if (video) video.pause();
+        if (audio) audio.pause();
+    }
+
+    nextMedia() {
+        if (this.mediaFiles.length > 0) {
+            this.currentMediaIndex = (this.currentMediaIndex + 1) % this.mediaFiles.length;
+            this.openLightbox(this.currentMediaIndex);
         }
     }
 
-    hideAchievementModal() {
-        const modal = document.getElementById('achievementModal');
-        if (modal) {
-            modal.style.display = 'none';
+    prevMedia() {
+        if (this.mediaFiles.length > 0) {
+            this.currentMediaIndex = (this.currentMediaIndex - 1 + this.mediaFiles.length) % this.mediaFiles.length;
+            this.openLightbox(this.currentMediaIndex);
         }
     }
 
-    // 🔄 LIVE-ОБНОВЛЕНИЯ В РЕАЛЬНОМ ВРЕМЕНИ
-    startLiveUpdates() {
-        this.liveUpdatesInterval = setInterval(() => {
-            this.simulateLiveActivity();
-        }, 30000); // Каждые 30 секунд
-    }
-
-    simulateLiveActivity() {
-        if (this.projects.length === 0) return;
-        
-        // Случайный проект получает поддержку
-        const randomProject = this.projects[Math.floor(Math.random() * this.projects.length)];
-        if (randomProject && randomProject.collected < randomProject.goal) {
-            const donation = Math.floor(Math.random() * 500) + 100;
-            randomProject.collected += donation;
-            randomProject.donors += 1;
-            
-            this.saveToStorage();
-            
-            // Показываем уведомление
-            if (Math.random() > 0.7) { // 30% шанс показать уведомление
-                this.showLiveNotification(
-                    `💫 Кто-то поддержал проект "${randomProject.title}" на ${donation}₽`,
-                    'info'
-                );
-            }
-            
-            // Перерисовываем если на нужной странице
-            if (this.currentRoute === 'projects' || this.currentRoute === 'home') {
-                this.render();
-            }
-        }
-    }
-
-    showLiveNotification(message, type = 'info') {
-        const container = document.getElementById('liveNotifications');
-        if (!container) return;
-        
-        const notification = document.createElement('div');
-        notification.className = `live-notification notification-${type}`;
-        notification.innerHTML = `
-            <div>${message}</div>
-            <small>Только что</small>
-        `;
-        
-        container.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 5000);
-    }
-
-    // 💬 ЧАТ-БОТ ПОДДЕРЖКИ
-    toggleChat() {
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-            chatContainer.classList.toggle('open');
-        }
-    }
-
-    sendMessage() {
-        const input = document.getElementById('chatInput');
-        const messagesContainer = document.getElementById('chatMessages');
-        
-        if (!input || !messagesContainer || !input.value.trim()) return;
-        
-        const message = input.value.trim();
-        
-        // Добавляем сообщение пользователя
-        this.addChatMessage(message, 'user');
-        input.value = '';
-        
-        // Имитируем ответ бота
-        setTimeout(() => {
-            this.generateBotResponse(message);
-        }, 1000);
-    }
-
-    addChatMessage(message, sender) {
-        const messagesContainer = document.getElementById('chatMessages');
-        if (!messagesContainer) return;
-        
-        const messageElement = document.createElement('div');
-        messageElement.className = `chat-message ${sender}`;
-        messageElement.textContent = message;
-        
-        messagesContainer.appendChild(messageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
-        this.chatMessages.push({ message, sender, timestamp: new Date() });
-    }
-
-    generateBotResponse(userMessage) {
-        const responses = {
-            'привет': 'Привет! Как я могу помочь вам с вашими проектами?',
-            'проект': 'Чтобы создать проект, перейдите на страницу "Создать проект" и заполните форму. Нужна помощь с чем-то конкретным?',
-            'поддерж': 'Вы можете поддержать любой проект, нажав кнопку "Поддержать" на карточке проекта.',
-            'коин': 'Коины начисляются за активность: создание проектов, поддержку других, достижения. Их можно тратить на продвижение проектов!',
-            'уровен': 'Уровень повышается за получение опыта (XP). XP дается за любую активность на платформе.',
-            'default': 'Извините, я не совсем понял вопрос. Вы можете спросить о создании проектов, поддержке, коинах или уровнях.'
-        };
-        
-        const lowerMessage = userMessage.toLowerCase();
-        let response = responses.default;
-        
-        for (const [key, value] of Object.entries(responses)) {
-            if (lowerMessage.includes(key)) {
-                response = value;
-                break;
-            }
-        }
-        
-        this.addChatMessage(response, 'bot');
-    }
-
-    // 📊 РАСШИРЕННАЯ АНАЛИТИКА
-    getProjectAnalytics(projectId) {
-        const project = this.projects.find(p => p.id === projectId);
-        if (!project) return null;
-        
-        const created = new Date(project.createdAt);
-        const now = new Date();
-        const daysRunning = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-        const avgDailyCollection = project.collected / Math.max(daysRunning, 1);
-        const completionEstimate = project.goal / avgDailyCollection;
-        
-        return {
-            daysRunning,
-            avgDailyCollection: Math.round(avgDailyCollection),
-            completionEstimate: Math.round(completionEstimate),
-            successProbability: this.calculateSuccessProbability(project),
-            trend: this.calculateTrend(project)
-        };
-    }
-
-    calculateSuccessProbability(project) {
-        const progress = project.collected / project.goal;
-        const timeLeft = project.deadline;
-        const dailyNeed = (project.goal - project.collected) / timeLeft;
-        const avgDaily = project.collected / (30 - timeLeft); // предполагаем 30 дней
-        
-        if (progress >= 1) return 100;
-        if (dailyNeed > avgDaily * 2) return 25;
-        if (dailyNeed > avgDaily) return 50;
-        if (dailyNeed <= avgDaily) return 75;
-        
-        return Math.min(progress * 100 + 20, 95);
-    }
-
-    calculateTrend(project) {
-        // Упрощенный расчет тренда
-        const progress = project.collected / project.goal;
-        const timeLeft = project.deadline;
-        
-        if (progress > 0.8) return '📈 Быстро растущий';
-        if (progress > 0.5) return '↗️ Стабильный рост';
-        if (progress > 0.2) return '➡️ Умеренный';
-        return '📉 Нужна поддержка';
-    }
-
-    // 🎰 СИСТЕМА СЛУЧАЙНЫХ СОБЫТИЙ
-    generateRandomEvent() {
-        const events = [
-            {
-                type: 'bonus',
-                message: '🎁 Сезонный бонус! Все проекты получают +10% к сбору сегодня!',
-                action: () => {
-                    this.projects.forEach(project => {
-                        project.collected += Math.floor(project.collected * 0.1);
-                    });
-                    this.saveToStorage();
-                }
-            },
-            {
-                type: 'challenge',
-                message: '🏆 Испытание дня! Поддержите 3 проекта и получите 50 коинов!',
-                action: () => {
-                    // Логика проверки выполнения будет в другом месте
-                    this.showLiveNotification('🏆 Новое испытание доступно!', 'info');
-                }
-            },
-            {
-                type: 'luck',
-                message: '🍀 Удача на вашей стороне! Следующая поддержка удваивается!',
-                action: () => {
-                    this.userStats.doubleNextDonation = true;
-                    this.saveUserStats();
-                }
-            }
-        ];
-        
-        if (Math.random() < 0.1) { // 10% шанс события
-            const event = events[Math.floor(Math.random() * events.length)];
-            this.showLiveNotification(event.message, 'success');
-            event.action();
-        }
-    }
-
-    // 🎮 ИГРОВИФИКАЦИЯ ПОДДЕРЖКИ
-    processDonationWithBonus(projectId, amount) {
+    // 📱 СОЦИАЛЬНЫЕ ФУНКЦИИ И ШАРИНГ
+    shareProject(projectId, platform) {
         const project = this.projects.find(p => p.id === projectId);
         if (!project) return;
+
+        const url = window.location.href.split('#')[0] + `#/project/${projectId}`;
+        const text = `Поддержи проект: "${project.title}" - уже собрано ${project.collected}₽ из ${project.goal}₽`;
         
-        let finalAmount = amount;
+        let shareUrl = '';
         
-        // Удвоение удачи
-        if (this.userStats.doubleNextDonation) {
-            finalAmount *= 2;
-            this.showLiveNotification('🍀 Удача! Ваша поддержка удвоена!', 'success');
-            delete this.userStats.doubleNextDonation;
-            this.saveUserStats();
+        switch(platform) {
+            case 'vk':
+                shareUrl = `https://vk.com/share.php?url=${encodeURIComponent(url)}&title=${encodeURIComponent(project.title)}&description=${encodeURIComponent(project.description.substring(0, 100))}`;
+                break;
+            case 'telegram':
+                shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+                break;
+            case 'whatsapp':
+                shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+                break;
+            case 'twitter':
+                shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+                break;
+            case 'copy':
+                navigator.clipboard.writeText(text + '\n' + url).then(() => {
+                    this.showNotification('📋 Ссылка скопирована в буфер!', 'success');
+                });
+                return;
         }
         
-        // Начисление коинов
-        const coinsEarned = Math.floor(amount / 10);
-        this.addCoins(coinsEarned, 'За поддержку проекта');
-        this.addXP(10);
+        if (shareUrl) {
+            window.open(shareUrl, '_blank', 'width=600,height=400');
+        }
         
-        // Обновление проекта
-        project.collected += finalAmount;
-        project.donors += 1;
+        // Награда за шаринг
+        this.userStats.socialShares++;
+        this.addCoins(10, 'За分享 проекта');
+        this.addXP(5);
         
-        this.saveToStorage();
-        this.render();
-        this.hideModal();
-        
-        this.showNotification(`🎉 Поддержано на ${finalAmount}₽! +${coinsEarned} коинов`, 'success');
-        this.checkProjectAchievements();
+        this.showNotification(`📤 Проект опубликован в ${this.getPlatformName(platform)}! +10 коинов`, 'success');
     }
 
-    // 📝 ОБНОВЛЕННЫЙ РЕНДЕРИНГ С НОВЫМИ ФУНКЦИЯМИ
-    renderHome() {
-        const featuredProjects = this.getRecommendedProjects();
-        const trendingProjects = this.getTrendingProjects();
-        const stats = this.getPlatformStats();
-
-        return `
-            <div class="hero-section fade-in">
-                <div class="hero-content">
-                    <h2>Помощь молодым проектам</h2>
-                    <p>Поддержи начинания школьников и студентов - вместе мы можем больше!</p>
-                    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
-                        <button onclick="app.navigate('create')" class="btn btn-large btn-gradient hover-lift">
-                            🚀 Создать проект
-                        </button>
-                        ${this.currentUser ? `
-                            <div class="coins-system hover-glow">
-                                🪙 <span id="userCoins">${this.userStats.coins}</span>
-                            </div>
-                            <div class="level-badge hover-glow tooltip">
-                                ⭐ Ур. <span id="userLevel">${this.userStats.level}</span>
-                                <span class="tooltip-text">Опыт: ${this.userStats.xp}/100 до след. уровня</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-
-            <div class="stats-overview fade-in">
-                <div class="stat-card hover-lift">
-                    <div class="stat-number">${stats.totalProjects}</div>
-                    <div class="stat-label">Активных проектов</div>
-                </div>
-                <div class="stat-card hover-lift">
-                    <div class="stat-number">${stats.totalCollected}₽</div>
-                    <div class="stat-label">Собрано всего</div>
-                </div>
-                <div class="stat-card hover-lift">
-                    <div class="stat-number">${stats.totalDonors}</div>
-                    <div class="stat-label">Участников</div>
-                </div>
-                <div class="stat-card hover-lift">
-                    <div class="stat-number">${stats.successRate}%</div>
-                    <div class="stat-label">Успешных сборов</div>
-                </div>
-            </div>
-
-            ${this.currentUser ? `
-                <section class="achievements-panel fade-in">
-                    <h3>🏆 Ваши достижения</h3>
-                    <div class="badges-container">
-                        ${this.renderUserBadges()}
-                    </div>
-                    <div class="level-progress">
-                        <div class="level-progress-fill" id="userXP" style="width: ${this.userStats.xp % 100}%"></div>
-                    </div>
-                </section>
-            ` : ''}
-
-            <section class="featured-projects fade-in">
-                <h3>🎯 Рекомендуемые проекты</h3>
-                <div class="projects-grid">
-                    ${featuredProjects.length > 0 ? 
-                      featuredProjects.map(project => this.renderProjectCard(project)).join('') :
-                      '<div class="empty-state"><h3>Пока нет проектов</h3><p>Будьте первым, кто создаст проект!</p></div>'
-                    }
-                </div>
-                ${featuredProjects.length > 0 ? `
-                    <div class="text-center">
-                        <button onclick="app.navigate('projects')" class="btn btn-outline hover-lift">
-                            👀 Смотреть все проекты
-                        </button>
-                    </div>
-                ` : ''}
-            </section>
-
-            ${trendingProjects.length > 0 ? `
-                <section class="featured-projects fade-in">
-                    <h3>📈 Популярные проекты</h3>
-                    <div class="projects-grid">
-                        ${trendingProjects.map(project => this.renderProjectCard(project)).join('')}
-                    </div>
-                </section>
-            ` : ''}
-        `;
-    }
-
-    renderUserBadges() {
-        const allBadges = [
-            { id: 'first_project', name: '🚀 Первый проект', description: 'Создал первый проект' },
-            { id: 'pro_creator', name: '🎯 Про-создатель', description: 'Создал 5 проектов' },
-            { id: 'supporter', name: '❤️ Активный сторонник', description: 'Поддержал 3 проекта' },
-            { id: 'coin_collector_1', name: '💰 Начинающий инвестор', description: 'Накопил 100 коинов' },
-            { id: 'coin_collector_2', name: '💰 Опытный инвестор', description: 'Накопил 500 коинов' },
-            { id: 'coin_collector_3', name: '💰 Крипто-кит', description: 'Накопил 1000 коинов' }
-        ];
-
-        return allBadges.map(badge => `
-            <div class="badge ${this.userStats.badges.includes(badge.id) ? 'earned' : 'locked'} tooltip">
-                ${badge.name}
-                <span class="tooltip-text">${badge.description}</span>
-            </div>
-        `).join('');
-    }
-
-    renderProjectCard(project) {
-        const progress = (project.collected / project.goal) * 100;
-        const daysLeft = project.deadline ? this.getDaysLeft(project.deadline) : null;
-        const isUrgent = daysLeft && daysLeft < 7 && progress < 100;
-        const achievements = this.getAchievements(project);
-        const isFeatured = project.donors > 30 || progress > 80;
-        const analytics = this.getProjectAnalytics(project.id);
-
-        return `
-            <div class="project-card ${isFeatured ? 'featured' : ''} fade-in hover-lift">
-                ${isFeatured ? '<div class="featured-badge">🔥 Популярный</div>' : ''}
-                <div class="project-image">
-                    ${project.image ? `<img src="${project.image}" alt="${project.title}" loading="lazy">` : '📁'}
-                    ${isUrgent ? '<div class="urgent-badge">⏰ Срочно!</div>' : ''}
-                </div>
-                
-                <div class="project-content">
-                    <div class="project-header">
-                        <h4>${project.title}</h4>
-                        <span class="project-category">${this.getCategoryIcon(project.category)} ${project.category}</span>
-                    </div>
-                    
-                    <p class="project-description">${project.description.substring(0, 100)}...</p>
-                    
-                    ${achievements.length > 0 ? `
-                        <div class="achievements">
-                            ${achievements.map(ach => `<span class="achievement">${ach}</span>`).join('')}
-                        </div>
-                    ` : ''}
-                    
-                    ${analytics ? `
-                        <div class="project-meta">
-                            <span class="countdown-timer ${isUrgent ? 'countdown-expiring' : ''}">
-                                ⏰ ${daysLeft}д
-                            </span>
-                            <span>${analytics.trend}</span>
-                            <span>🎯 ${analytics.successProbability}% успеха</span>
-                        </div>
-                    ` : ''}
-                    
-                    <div class="project-author">
-                        <span>👤 ${project.author}</span>
-                        <span>📅 ${this.formatDate(project.createdAt)}</span>
-                    </div>
-
-                    <div class="progress-container">
-                        <div class="progress">
-                            <div class="progress-bar" style="width: ${Math.min(progress, 100)}%"></div>
-                        </div>
-                        <div class="progress-stats">
-                            <span><strong>${project.collected}₽</strong> собрано</span>
-                            <span>${Math.round(progress)}%</span>
-                        </div>
-                    </div>
-
-                    <div class="project-meta">
-                        <span>🎯 ${project.goal}₽</span>
-                        <span>👥 ${project.donors} поддержали</span>
-                        ${daysLeft ? `<span>⏰ ${daysLeft} дней осталось</span>` : ''}
-                    </div>
-
-                    ${project.averageRating ? `
-                        <div class="rating">
-                            ${[1,2,3,4,5].map(star => `
-                                <span class="star ${star <= Math.round(project.averageRating) ? 'active' : ''}">
-                                    ${star <= Math.round(project.averageRating) ? '⭐' : '☆'}
-                                </span>
-                            `).join('')}
-                            <small>(${project.rating.count})</small>
-                        </div>
-                    ` : ''}
-
-                    <div class="project-actions">
-                        <button onclick="app.supportProject('${project.id}')" 
-                                class="btn btn-donate hover-lift">💝 Поддержать</button>
-                        <button onclick="app.toggleFavorite('${project.id}')" 
-                                class="btn-icon ${project.isFavorite ? 'favorite' : ''} hover-lift">⭐</button>
-                        ${!project.averageRating ? `
-                            <button onclick="app.showRatingModal('${project.id}')" 
-                                    class="btn-icon hover-lift">👍</button>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // 💾 ОБНОВЛЕННОЕ ХРАНЕНИЕ ДАННЫХ
-    loadInitialData() {
-        const saved = localStorage.getItem('crowdfunding_projects');
-        this.projects = saved ? JSON.parse(saved) : this.getDemoProjects();
-        
-        const savedUsers = localStorage.getItem('crowdfunding_users');
-        this.users = savedUsers ? JSON.parse(savedUsers) : [];
-        
-        const currentUser = localStorage.getItem('current_user');
-        this.currentUser = currentUser ? JSON.parse(currentUser) : null;
-        
-        const savedStats = localStorage.getItem('user_stats');
-        this.userStats = savedStats ? JSON.parse(savedStats) : {
-            coins: 100,
-            level: 1,
-            xp: 0,
-            badges: [],
-            notifications: []
+    getPlatformName(platform) {
+        const names = {
+            'vk': 'ВКонтакте',
+            'telegram': 'Telegram',
+            'whatsapp': 'WhatsApp',
+            'twitter': 'Twitter'
         };
+        return names[platform] || platform;
     }
 
-    saveUserStats() {
-        localStorage.setItem('user_stats', JSON.stringify(this.userStats));
-    }
-
-    // 🔧 ОБНОВЛЕННЫЕ ОСНОВНЫЕ МЕТОДЫ
-    handleProjectSubmit(event) {
-        event.preventDefault();
-        
-        const title = document.getElementById('projectTitle').value;
-        const description = document.getElementById('projectDescription').value;
-        const goal = parseInt(document.getElementById('projectGoal').value);
-        const category = document.getElementById('projectCategory').value;
-        const author = document.getElementById('projectAuthor').value || 'Аноним';
-        const deadline = parseInt(document.getElementById('projectDeadline').value) || 30;
-        const image = document.getElementById('projectImage').value;
-
-        if (!title || !description || !goal || !category) {
-            this.showNotification('❌ Пожалуйста, заполните все обязательные поля', 'error');
+    // 🎥 ПРЯМЫЕ ТРАНСЛЯЦИИ
+    startLiveStream(projectId) {
+        if (!navigator.mediaDevices) {
+            this.showNotification('❌ Ваш браузер не поддерживает трансляции', 'error');
             return;
         }
 
-        const projectData = {
-            title: title,
-            description: description,
-            goal: goal,
-            category: category,
-            author: author,
-            deadline: deadline,
-            image: image,
-            createdAt: new Date().toISOString(),
-            collected: 0,
-            donors: 0,
-            status: 'active',
-            id: Date.now().toString()
-        };
-
-        this.projects.unshift(projectData);
-        this.saveToStorage();
-        
-        // Награда за создание проекта
-        this.addCoins(50, 'За создание проекта');
-        this.addXP(25);
-        this.checkProjectAchievements();
-        
-        this.showNotification('🎉 Проект успешно создан! +50 коинов', 'success');
-        this.navigate('projects');
+        this.showModal(`
+            <h3>🎥 Начать трансляцию</h3>
+            <p>Подключите камеру и микрофон для прямой трансляции</p>
+            <div style="display: flex; gap: 0.5rem; margin: 1.5rem 0;">
+                <button onclick="app.initiateStream('${projectId}')" class="btn btn-gradient">
+                    🎬 Начать трансляцию
+                </button>
+                <button onclick="app.hideModal()" class="btn btn-cancel">
+                    Отмена
+                </button>
+            </div>
+        `);
     }
 
-    supportProject(projectId) {
+    initiateStream(projectId) {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                this.showNotification('🎥 Трансляция началась!', 'success');
+                this.hideModal();
+                // Здесь можно интегрировать с WebRTC сервером
+                this.simulateLiveStream(projectId);
+            })
+            .catch(error => {
+                this.showNotification('❌ Ошибка доступа к камере/микрофону', 'error');
+            });
+    }
+
+    simulateLiveStream(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project) return;
+
+        // Имитация живой трансляции
+        this.showLiveNotification(`🎥 Началась трансляция проекта "${project.title}"`, 'info');
+        
+        // Увеличиваем вовлеченность
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                project.collected += Math.floor(Math.random() * 500) + 100;
+                project.donors += 1;
+                this.saveToStorage();
+                this.showLiveNotification(`💫 Кто-то поддержал трансляцию проекта!`, 'success');
+            }
+        }, 10000);
+    }
+
+    // 💬 КОММЕНТАРИИ С МЕДИА
+    addComment(projectId, text, media = null) {
         if (!this.currentUser) {
             this.showAuthModal();
             return;
         }
 
-        const project = this.projects.find(p => p.id === projectId);
-        if (!project) return;
+        const comment = {
+            id: Date.now(),
+            author: this.currentUser.name,
+            avatar: this.currentUser.avatar,
+            text: text,
+            media: media,
+            timestamp: new Date().toISOString(),
+            likes: 0,
+            replies: []
+        };
 
-        this.showModal(`
-            <h3>💝 Поддержать проект</h3>
-            <p><strong>«${project.title}»</strong></p>
-            ${this.userStats.doubleNextDonation ? `
-                <div class="achievement" style="margin: 1rem 0;">
-                    🍀 Удача! Следующая поддержка будет удвоена!
-                </div>
-            ` : ''}
-            <p style="color: var(--text-light); margin: 1rem 0;">Выберите сумму поддержки:</p>
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            project.comments = project.comments || [];
+            project.comments.push(comment);
+            this.saveToStorage();
             
-            <div class="donation-amounts" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin: 1.5rem 0;">
-                <button onclick="app.processDonationWithBonus('${projectId}', 100)" class="btn btn-outline hover-lift">100₽</button>
-                <button onclick="app.processDonationWithBonus('${projectId}', 500)" class="btn btn-outline hover-lift">500₽</button>
-                <button onclick="app.processDonationWithBonus('${projectId}', 1000)" class="btn btn-outline hover-lift">1000₽</button>
-            </div>
+            // Награда за комментарий
+            this.addCoins(5, 'За комментарий');
+            this.addXP(2);
             
-            <div class="custom-amount" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                <input type="number" id="customAmount" placeholder="Другая сумма" min="10" 
-                       style="flex: 1; padding: 0.75rem; border: 2px solid var(--border); border-radius: 0.5rem; background: var(--surface); color: var(--text);">
-                <button onclick="app.processCustomDonationWithBonus('${projectId}')" class="btn btn-gradient hover-lift">Поддержать</button>
-            </div>
-            
-            <div style="margin-top: 1rem; padding: 1rem; background: var(--background); border-radius: 0.5rem;">
-                <small>💡 За поддержку вы получите коины и опыт!</small>
-            </div>
-        `);
+            this.showNotification('💬 Комментарий добавлен! +5 коинов', 'success');
+            this.renderProjectDetail();
+        }
     }
 
-    processCustomDonationWithBonus(projectId) {
-        const amount = parseInt(document.getElementById('customAmount')?.value);
-        if (!amount || amount < 10) {
-            this.showNotification('❌ Введите корректную сумму (минимум 10₽)', 'error');
-            return;
+    renderComments(projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (!project || !project.comments) return '';
+
+        return `
+            <div class="comments-section">
+                <h4>💬 Обсуждение (${project.comments.length})</h4>
+                ${project.comments.map(comment => `
+                    <div class="comment">
+                        <div class="comment-header">
+                            <div class="comment-avatar">${comment.avatar}</div>
+                            <div>
+                                <div class="comment-author">${comment.author}</div>
+                                <div class="comment-time">${this.formatTimeAgo(comment.timestamp)}</div>
+                            </div>
+                        </div>
+                        <div class="comment-content">
+                            <div>${comment.text}</div>
+                            ${comment.media ? `
+                                <div class="comment-media">
+                                    ${comment.media.type === 'image' ? `
+                                        <img src="${comment.media.url}" alt="Медиа" onclick="app.openLightboxFromComment('${comment.media.url}')">
+                                    ` : comment.media.type === 'video' ? `
+                                        <video controls style="max-width: 100%;">
+                                            <source src="${comment.media.url}" type="video/mp4">
+                                        </video>
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+                            <div class="comment-actions">
+                                <button class="comment-action" onclick="app.likeComment('${projectId}', '${comment.id}')">
+                                    👍 ${comment.likes}
+                                </button>
+                                <button class="comment-action">
+                                    💬 Ответить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    likeComment(projectId, commentId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project && project.comments) {
+            const comment = project.comments.find(c => c.id == commentId);
+            if (comment) {
+                comment.likes++;
+                this.saveToStorage();
+                this.renderProjectDetail();
+                
+                // Награда за лайк
+                this.addCoins(1, 'За лайк комментария');
+            }
         }
-        this.processDonationWithBonus(projectId, amount);
+    }
+
+    // 🎵 АУДИО ПЛЕЕР
+    playAudio(audioUrl, title = 'Аудио') {
+        const audioPlayer = document.getElementById('audioPlayer');
+        const source = audioPlayer.querySelector('source');
+        
+        source.src = audioUrl;
+        audioPlayer.load();
+        audioPlayer.play().catch(e => {
+            this.showNotification('❌ Ошибка воспроизведения аудио', 'error');
+        });
+
+        this.showNotification(`🎵 Воспроизведение: ${title}`, 'info');
+    }
+
+    // 📊 ИНТЕГРАЦИЯ С СОЦСЕТЯМИ
+    joinTelegram() {
+        window.open('https://t.me/your_channel', '_blank');
+        this.addCoins(20, 'За присоединение к Telegram');
+    }
+
+    watchYouTube() {
+        window.open('https://youtube.com/your_channel', '_blank');
+        this.addCoins(15, 'За просмотр YouTube');
+    }
+
+    loadSocialFeed() {
+        // Имитация загрузки постов из соцсетей
+        return [
+            {
+                id: 1,
+                platform: 'vk',
+                author: 'Сообщество проектов',
+                avatar: '👥',
+                text: 'Новый проект достиг 50% финансирования за первые сутки! 🎉',
+                likes: 23,
+                shares: 5,
+                time: '2 часа назад'
+            },
+            {
+                id: 2,
+                platform: 'telegram',
+                author: 'Tech News',
+                avatar: '📱',
+                text: 'Как краудфандинг меняет образование? Читайте в нашем новом посте!',
+                likes: 45,
+                shares: 12,
+                time: '5 часов назад'
+            }
+        ];
+    }
+
+    // 🎨 ОБНОВЛЕННЫЙ РЕНДЕРИНГ
+    renderProjectDetail() {
+        const project = this.projects.find(p => p.id === this.currentProjectId);
+        if (!project) {
+            return '<div class="error-state fade-in"><h3>Проект не найден</h3><button onclick="app.navigate(\'projects\')" class="btn">Вернуться к проектам</button></div>';
+        }
+
+        const progress = (project.collected / project.goal) * 100;
+        const achievements = this.getAchievements(project);
+        const analytics = this.getProjectAnalytics(project.id);
+
+        return `
+            <div class="project-detail">
+                <button onclick="app.navigate('projects')" class="btn btn-back hover-lift">← Назад к проектам</button>
+                
+                <div class="project-hero fade-in">
+                    <div class="project-hero-content">
+                        <h1>${project.title}</h1>
+                        <p class="project-meta">Автор: ${project.author} • 📅 ${this.formatDate(project.createdAt)}</p>
+                        
+                        <!-- Социальные кнопки -->
+                        <div class="social-share">
+                            <button class="share-btn vk" onclick="app.shareProject('${project.id}', 'vk')">
+                                <span>VK</span>
+                            </button>
+                            <button class="share-btn telegram" onclick="app.shareProject('${project.id}', 'telegram')">
+                                <span>Telegram</span>
+                            </button>
+                            <button class="share-btn whatsapp" onclick="app.shareProject('${project.id}', 'whatsapp')">
+                                <span>WhatsApp</span>
+                            </button>
+                            <button class="share-btn twitter" onclick="app.shareProject('${project.id}', 'twitter')">
+                                <span>Twitter</span>
+                            </button>
+                            <button class="share-btn copy" onclick="app.shareProject('${project.id}', 'copy')">
+                                <span>Копировать</span>
+                            </button>
+                        </div>
+
+                        ${achievements.length > 0 ? `
+                            <div class="achievements">
+                                ${achievements.map(ach => `<span class="achievement">${ach}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="project-stats-large">
+                            <div class="stat hover-lift">
+                                <span class="stat-number">${project.collected}₽</span>
+                                <span class="stat-label">Собрано</span>
+                            </div>
+                            <div class="stat hover-lift">
+                                <span class="stat-number">${project.goal}₽</span>
+                                <span class="stat-label">Цель</span>
+                            </div>
+                            <div class="stat hover-lift">
+                                <span class="stat-number">${project.donors}</span>
+                                <span class="stat-label">Поддержали</span>
+                            </div>
+                            <div class="stat hover-lift">
+                                <span class="stat-number">${Math.round(progress)}%</span>
+                                <span class="stat-label">Прогресс</span>
+                            </div>
+                        </div>
+
+                        <div class="progress large">
+                            <div class="progress-bar" style="width: ${Math.min(progress, 100)}%"></div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button onclick="app.supportProject('${project.id}')" class="btn btn-donate-large btn-gradient hover-lift">
+                                💝 Поддержать проект
+                            </button>
+                            <button onclick="app.startLiveStream('${project.id}')" class="btn btn-outline hover-lift">
+                                🎥 Прямой эфир
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Медиа галерея -->
+                <section class="fade-in">
+                    <h3>📁 Медиа проекта</h3>
+                    <div class="media-gallery" id="mediaGallery">
+                        <div class="media-upload" onclick="app.showUploadModal()">
+                            <div style="font-size: 2rem;">+</div>
+                            <div>Добавить медиа</div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="project-content-detailed fade-in">
+                    <div class="project-description-full">
+                        <h3>📖 О проекте</h3>
+                        <p>${project.description}</p>
+                        
+                        ${analytics ? `
+                            <div class="analytics-chart">
+                                <h4>📊 Аналитика проекта</h4>
+                                <div class="chart-placeholder">
+                                    График прогресса сбора средств
+                                </div>
+                                <div style="margin-top: 1rem;">
+                                    <div>📈 Тренд: ${analytics.trend}</div>
+                                    <div>🎯 Вероятность успеха: ${analytics.successProbability}%</div>
+                                    <div>⏱️ Среднедневной сбор: ${analytics.avgDailyCollection}₽</div>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${project.averageRating ? `
+                            <div class="rating" style="margin-top: 2rem;">
+                                <h4>⭐ Рейтинг проекта</h4>
+                                <div>
+                                    ${[1,2,3,4,5].map(star => `
+                                        <span class="star ${star <= Math.round(project.averageRating) ? 'active' : ''}">
+                                            ${star <= Math.round(project.averageRating) ? '⭐' : '☆'}
+                                        </span>
+                                    `).join('')}
+                                    <span style="margin-left: 1rem; color: var(--text-light);">
+                                        ${project.averageRating.toFixed(1)} из 5 (${project.rating.count} оценок)
+                                    </span>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Лента из соцсетей -->
+                        <div class="social-feed">
+                            <h4>📱 Обсуждение в соцсетях</h4>
+                            ${this.loadSocialFeed().map(post => `
+                                <div class="social-post">
+                                    <div class="social-header">
+                                        <div class="social-avatar">${post.avatar}</div>
+                                        <div>
+                                            <div class="comment-author">${post.author}</div>
+                                            <div class="comment-time">${post.time}</div>
+                                        </div>
+                                    </div>
+                                    <div>${post.text}</div>
+                                    <div class="social-stats">
+                                        <span>👍 ${post.likes}</span>
+                                        <span>📤 ${post.shares}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Комментарии -->
+                        ${this.renderComments(project.id)}
+                    </div>
+
+                    <div class="project-sidebar">
+                        <div class="info-card hover-lift">
+                            <h4>📋 Информация</h4>
+                            <div class="info-item">
+                                <strong>Категория:</strong>
+                                <span>${this.getCategoryIcon(project.category)} ${project.category}</span>
+                            </div>
+                            <div class="info-item">
+                                <strong>Статус:</strong>
+                                <span>${project.status}</span>
+                            </div>
+                            <div class="info-item">
+                                <strong>Автор:</strong>
+                                <span>${project.author}</span>
+                            </div>
+                            ${project.deadline ? `
+                                <div class="info-item">
+                                    <strong>Дней осталось:</strong>
+                                    <span>${project.deadline}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Виджеты соцсетей -->
+                        <div class="social-widgets">
+                            <div class="social-widget">
+                                <h4>📱 Наше сообщество</h4>
+                                <p>Присоединяйтесь к обсуждению</p>
+                                <button onclick="app.joinTelegram()" class="btn btn-gradient" style="margin-top: 1rem;">
+                                    Подписаться
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // 🕒 ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    formatTimeAgo(timestamp) {
+        const now = new Date();
+        const time = new Date(timestamp);
+        const diff = now - time;
+        
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (days > 0) return `${days}д назад`;
+        if (hours > 0) return `${hours}ч назад`;
+        if (minutes > 0) return `${minutes}м назад`;
+        return 'Только что';
     }
 
     // ... остальные методы из предыдущей версии ...
-
-    updateNavigation() {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.toggle('active', link.getAttribute('data-route') === this.currentRoute);
-        });
-
-        const authBtn = document.getElementById('authBtn');
-        const userMenu = document.getElementById('userMenu');
-        const userName = document.getElementById('userName');
-        const userAvatar = document.getElementById('userAvatar');
-
-        if (this.currentUser && userMenu && userName && userAvatar) {
-            authBtn.style.display = 'none';
-            userMenu.style.display = 'flex';
-            userMenu.style.alignItems = 'center';
-            userMenu.style.gap = '0.75rem';
-            userName.textContent = this.currentUser.name;
-            userAvatar.textContent = this.currentUser.avatar;
-            
-            // Добавляем коины и уровень в меню пользователя
-            if (!document.getElementById('userCoinsMenu')) {
-                const coinsElement = document.createElement('div');
-                coinsElement.id = 'userCoinsMenu';
-                coinsElement.className = 'coins-system';
-                coinsElement.innerHTML = `🪙 ${this.userStats.coins}`;
-                userMenu.insertBefore(coinsElement, userMenu.firstChild);
-            }
-        } else if (authBtn) {
-            authBtn.style.display = 'block';
-            if (userMenu) userMenu.style.display = 'none';
-        }
-    }
 }
 
 // Инициализация приложения

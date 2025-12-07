@@ -1,4 +1,4 @@
-// js/projects.js - базовая версия
+
 console.log('📁 Projects manager loading...');
 
 class ProjectsManager {

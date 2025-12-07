@@ -585,3 +585,20 @@ body {
     color: #666;
     font-size: 1.1rem;
 }
+/* Замените картинки на CSS градиенты */
+.project-image {
+    background: linear-gradient(135deg, #4a6bdf 0%, #6a8eff 100%);
+    height: 200px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+}
+
+.hero-image {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    height: 400px;
+}

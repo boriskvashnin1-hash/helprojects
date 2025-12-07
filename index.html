@@ -1,5 +1,19 @@
 <!DOCTYPE html>
 <html lang="ru">
+    <!-- Подключаем Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Временные ключи для теста (замените на свои!)
+  const SUPABASE_URL = 'https://ваш-id.supabase.co'
+  const SUPABASE_ANON_KEY = 'ваш-public-key'
+  
+  // Инициализация
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  
+  // Для глобального доступа
+  window.db = supabase
+  console.log('Supabase инициализирован')
+</script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

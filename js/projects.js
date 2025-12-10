@@ -1,209 +1,130 @@
-console.log('📁 Projects manager loading...');
+// Управление проектами - UI функции
 
-class ProjectsManager {
-    constructor() {
-        this.projects = [];
-        this.loadProjects();
+// Загрузка и отображение проектов
+async function loadProjects() {
+    const projects = await db.getProjects();
+    displayProjects(projects);
+}
+
+// Отображение проектов на странице
+function displayProjects(projects) {
+    const container = document.getElementById('projectsContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (projects.length === 0) {
+        container.innerHTML = '<p class="no-projects">Проектов пока нет</p>';
+        return;
     }
     
-    loadProjects() {
-        const saved = localStorage.getItem('helprojects_projects');
-        if (saved) {
-            this.projects = JSON.parse(saved);
-        } else {
-            // Демо-проекты с реальными изображениями
-            this.projects = [
-                {
-                    id: '1',
-                    title: 'Школьный робот',
-                    description: 'Создание программируемого робота для участия в городских соревнованиях по робототехнике',
-                    short_description: 'Робот для школьных соревнований',
-                    goal: 50000,
-                    current_amount: 25000,
-                    author: 'Иван Петров',
-                    category: 'technology',
-                    status: 'active',
-                    image_url: 'https://images.unsplash.com/photo-1555255707-c07966088b7b?w=400&fit=crop',
-                    created_at: '2025-01-15'
-                },
-                {
-                    id: '2',
-                    title: 'Школьная газета',
-                    description: 'Запуск регулярной школьной газеты с современным дизайном и интересными рубриками',
-                    short_description: 'Школьная газета "Голос поколения"',
-                    goal: 20000,
-                    current_amount: 15000,
-                    author: 'Мария Сидорова',
-                    category: 'art',
-                    status: 'active',
-                    image_url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&fit=crop',
-                    created_at: '2025-01-20'
-                },
-                {
-                    id: '3',
-                    title: 'Эко-сад на школьном дворе',
-                    description: 'Создание экологического сада с редкими растениями и учебной зоной для биологии',
-                    short_description: 'Экологический проект',
-                    goal: 50000,
-                    current_amount: 22500,
-                    author: 'Алексей Иванов',
-                    category: 'ecology',
-                    status: 'active',
-                    image_url: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&fit=crop',
-                    created_at: '2025-02-01'
-                }
-            ];
-            this.saveProjects();
-        }
-        console.log('✅ Загружено проектов:', this.projects.length);
-    }
+    projects.forEach(project => {
+        const projectCard = createProjectCard(project);
+        container.appendChild(projectCard);
+    });
+}
+
+// Создание карточки проекта
+function createProjectCard(project) {
+    const card = document.createElement('div');
+    card.className = 'project-card';
     
-    saveProjects() {
-        localStorage.setItem('helprojects_projects', JSON.stringify(this.projects));
-    }
+    const statusClass = `status-${project.status || 'planning'}`;
+    const author = project.profiles ? project.profiles.full_name : 'Неизвестный автор';
     
-    getAllProjects() {
-        return this.projects;
-    }
+    card.innerHTML = `
+        <div class="project-header">
+            <h3>${project.title}</h3>
+            <span class="project-status ${statusClass}">
+                ${getStatusText(project.status)}
+            </span>
+        </div>
+        <p class="project-description">${project.description || 'Описание отсутствует'}</p>
+        <div class="project-meta">
+            <span><i class="fas fa-user"></i> ${author}</span>
+            <span><i class="fas fa-book"></i> ${project.subject || 'Не указан'}</span>
+            <span><i class="fas fa-chart-line"></i> ${project.progress || 0}%</span>
+        </div>
+        <div class="project-actions">
+            <button onclick="viewProject('${project.id}')" class="btn btn-primary">
+                <i class="fas fa-eye"></i> Подробнее
+            </button>
+            ${isCurrentUserProject(project.user_id) ? `
+                <button onclick="editProject('${project.id}')" class="btn btn-secondary">
+                    <i class="fas fa-edit"></i> Редактировать
+                </button>
+                <button onclick="deleteProject('${project.id}')" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Удалить
+                </button>
+            ` : ''}
+        </div>
+    `;
     
-    getFeaturedProjects(limit = 3) {
-        return this.projects.slice(0, limit);
-    }
-    
-    getProjectById(id) {
-        return this.projects.find(p => p.id === id);
-    }
-    
-    createProject(projectData) {
-        const project = {
-            id: 'project_' + Date.now(),
-            ...projectData,
-            current_amount: 0,
-            status: 'active',
-            created_at: new Date().toISOString(),
-            image_url: projectData.image_url || 'https://images.unsplash.com/photo-1555255707-c07966088b7b?w=400&fit=crop'
-        };
-        
-        this.projects.push(project);
-        this.saveProjects();
-        
-        return { success: true, project };
-    }
-    
-    supportProject(projectId, amount) {
-        const project = this.getProjectById(projectId);
-        if (!project) {
-            return { success: false, message: 'Проект не найден' };
-        }
-        
-        project.current_amount += parseFloat(amount);
-        this.saveProjects();
-        
-        return { success: true, project };
-    }
-    
-    generateProjectCardHTML(project) {
-        const defaultImage = 'https://images.unsplash.com/photo-1555255707-c07966088b7b?w=400&fit=crop';
-        const imageUrl = project.image_url || defaultImage;
-        const progress = project.goal > 0 
-            ? Math.min(100, (project.current_amount / project.goal) * 100) 
-            : 0;
-        
-        return `
-            <div class="project-card">
-                <div class="project-image">
-                    <img src="${imageUrl}" 
-                         alt="${project.title}" 
-                         onerror="this.src='${defaultImage}'">
-                </div>
-                <div class="project-info">
-                    <h3>${project.title}</h3>
-                    <p>${project.short_description || (project.description ? project.description.substring(0, 100) + '...' : 'Описание проекта')}</p>
-                    <div class="project-stats">
-                        <div class="progress-bar">
-                            <div class="progress" style="width: ${progress}%"></div>
-                        </div>
-                        <div class="stats">
-                            <span><i class="fas fa-ruble-sign"></i> ${project.current_amount.toLocaleString()} собрано</span>
-                            <span><i class="fas fa-bullseye"></i> ${project.goal.toLocaleString()} цель</span>
-                        </div>
-                    </div>
-                    <a href="pages/project-details.html?id=${project.id}" class="btn btn-small">Поддержать</a>
-                </div>
-            </div>
-        `;
-    }
-    
-    displayProjects(containerId, projects = null) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        const projectsToDisplay = projects || this.projects;
-        
-        if (projectsToDisplay.length === 0) {
-            container.innerHTML = '<div class="no-projects">Пока нет проектов. Будьте первым!</div>';
-            return;
-        }
-        
-        container.innerHTML = projectsToDisplay.map(project => 
-            this.generateProjectCardHTML(project)
-        ).join('');
+    return card;
+}
+
+// Получение текста статуса
+function getStatusText(status) {
+    const statusMap = {
+        'planning': 'Планирование',
+        'active': 'В работе',
+        'completed': 'Завершен'
+    };
+    return statusMap[status] || status;
+}
+
+// Проверка, принадлежит ли проект текущему пользователю
+function isCurrentUserProject(userId) {
+    return window.currentUser && window.currentUser.id === userId;
+}
+
+// Просмотр проекта
+function viewProject(projectId) {
+    window.location.href = `project-detail.html?id=${projectId}`;
+}
+
+// Редактирование проекта
+function editProject(projectId) {
+    window.location.href = `edit-project.html?id=${projectId}`;
+}
+
+// Удаление проекта
+async function deleteProject(projectId) {
+    const success = await db.deleteProject(projectId);
+    if (success) {
+        loadProjects();
     }
 }
 
-window.projectsManager = new ProjectsManager();
-console.log('✅ Projects manager ready');
-
-function getFeaturedProjects() {
-    return window.projectsManager.getFeaturedProjects();
-}
-
-function displayFeaturedProjects() {
-    const featuredProjects = window.projectsManager.getFeaturedProjects(3);
-    window.projectsManager.displayProjects('featured-projects', featuredProjects);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('featured-projects')) {
-        displayFeaturedProjects();
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', async function() {
+    // Проверяем авторизацию
+    await checkAuth();
+    
+    // Загружаем проекты если есть контейнер
+    if (document.getElementById('projectsContainer')) {
+        await loadProjects();
+    }
+    
+    // Обработка формы создания проекта
+    const createForm = document.getElementById('createProjectForm');
+    if (createForm) {
+        createForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const projectData = {
+                title: document.getElementById('projectTitle').value,
+                description: document.getElementById('projectDescription').value,
+                subject: document.getElementById('projectSubject').value,
+                status: document.getElementById('projectStatus').value,
+                progress: parseInt(document.getElementById('projectProgress').value),
+                deadline: document.getElementById('projectDeadline').value || null
+            };
+            
+            const project = await db.createProject(projectData);
+            if (project) {
+                window.location.href = 'projects.html';
+            }
+        });
     }
 });
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ProjectsManager;
-    // ДОБАВЬТЕ ЭТО В КОНЕЦ ФАЙЛА projects.js:
-
-// Проверка и исправление демо-данных
-function fixDemoImages() {
-    const projects = window.projectsManager.projects;
-    const demoImages = [
-        'https://images.unsplash.com/photo-1555255707-c07966088b7b?w=400&fit=crop',
-        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&fit=crop',
-        'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&fit=crop'
-    ];
-    
-    let updated = false;
-    projects.forEach((project, index) => {
-        if (!project.image_url) {
-            project.image_url = demoImages[index % demoImages.length];
-            updated = true;
-        }
-    });
-    
-    if (updated) {
-        window.projectsManager.saveProjects();
-        console.log('✅ Исправлены изображения проектов');
-    }
-}
-
-// Вызываем после загрузки
-setTimeout(fixDemoImages, 1000);
-
-// И принудительно перерисовываем проекты
-setTimeout(() => {
-    if (document.getElementById('featured-projects')) {
-        window.projectsManager.displayProjects('featured-projects', 
-            window.projectsManager.getFeaturedProjects(3));
-    }
-}, 1500);
-}
